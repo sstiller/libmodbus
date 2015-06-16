@@ -12,6 +12,7 @@
 #include <signal.h>
 
 #include <modbus.h>
+#include <default_mapping.h>
 
 #if defined(_WIN32)
 #include <ws2tcpip.h>
@@ -26,7 +27,7 @@
 
 modbus_t *ctx = NULL;
 int server_socket = -1;
-modbus_mapping_t *mb_mapping;
+modbus_storage_backend_t *mb_storage_be;
 
 static void close_sigint(int dummy)
 {
@@ -34,7 +35,7 @@ static void close_sigint(int dummy)
         close(server_socket);
     }
     modbus_free(ctx);
-    modbus_mapping_free(mb_mapping);
+    modbus_default_mapping_free(mb_storage_be);
 
     exit(dummy);
 }
@@ -51,9 +52,9 @@ int main(void)
 
     ctx = modbus_new_tcp("127.0.0.1", 1502);
 
-    mb_mapping = modbus_mapping_new(MODBUS_MAX_READ_BITS, 0,
+    mb_storage_be = modbus_default_mapping_new(MODBUS_MAX_READ_BITS, 0,
                                     MODBUS_MAX_READ_REGISTERS, 0);
-    if (mb_mapping == NULL) {
+    if (mb_storage_be == NULL) {
         fprintf(stderr, "Failed to allocate the mapping: %s\n",
                 modbus_strerror(errno));
         modbus_free(ctx);
@@ -113,7 +114,7 @@ int main(void)
                 modbus_set_socket(ctx, master_socket);
                 rc = modbus_receive(ctx, query);
                 if (rc > 0) {
-                    modbus_reply(ctx, query, rc, mb_mapping);
+                    modbus_reply(ctx, query, rc, mb_storage_be);
                 } else if (rc == -1) {
                     /* This example server in ended on connection closing or
                      * any errors. */

@@ -152,35 +152,26 @@ extern const unsigned int libmodbus_version_major;
 extern const unsigned int libmodbus_version_minor;
 extern const unsigned int libmodbus_version_micro;
 
+// forward declarations
 typedef struct _modbus modbus_t;
+typedef struct modbus_storage_backend_t modbus_storage_backend_t;
 
 typedef struct _modbus_storage_backend_vfptable {
 	int version;
-	int (*read_coils)(void* /*backend*/, uint16_t /*starting_address*/, uint16_t /*quantity*/, uint16_t* /*byte_count*/, uint8_t[] /*coils*/);
-	int (*read_inputs)(void* backend, uint16_t starting_address, uint16_t quantity, uint16_t* byte_count, uint8_t inputs[]);
-	int (*read_holding_registers)(void* backend, uint16_t starting_address, uint16_t quantity, uint16_t* byte_count, uint16_t values[]);
-	int (*read_input_registers)(void* backend, uint16_t starting_address, uint16_t quantity, uint16_t* byte_count, uint16_t values[]);
-	int (*write_single_coil)(void* backend, uint16_t address, uint8_t on);
-	int (*write_single_register)(void* backend, uint16_t address, uint16_t value);
-	int (*write_multiple_coils)(void* backend, uint16_t starting_address, uint16_t quantity, const uint8_t values[]);
-	int (*write_multiple_registers)(void* backend, uint16_t starting_address, uint16_t quantity, const uint16_t values[]);
+	int (*read_coils)(modbus_storage_backend_t* /*backend*/, uint16_t /*starting_address*/, uint16_t /*quantity*/, uint16_t* /*byte_count*/, uint8_t[] /*coils*/);
+	int (*read_inputs)(modbus_storage_backend_t* backend, uint16_t starting_address, uint16_t quantity, uint16_t* byte_count, uint8_t inputs[]);
+	int (*read_holding_registers)(modbus_storage_backend_t* backend, uint16_t starting_address, uint16_t quantity, uint16_t* byte_count, uint16_t values[]);
+	int (*read_input_registers)(modbus_storage_backend_t* backend, uint16_t starting_address, uint16_t quantity, uint16_t* byte_count, uint16_t values[]);
+	int (*write_single_coil)(modbus_storage_backend_t* backend, uint16_t address, uint8_t on);
+	int (*write_single_register)(modbus_storage_backend_t* backend, uint16_t address, uint16_t value);
+	int (*write_multiple_coils)(modbus_storage_backend_t* backend, uint16_t starting_address, uint16_t quantity, const uint8_t values[]);
+	int (*write_multiple_registers)(modbus_storage_backend_t* backend, uint16_t starting_address, uint16_t quantity, const uint16_t values[]);
 } modbus_storage_backend_vfptable;
 
-typedef struct {
+typedef struct modbus_storage_backend_t {
     modbus_storage_backend_vfptable* vfptable;
-    int nb_bits;
-    int nb_input_bits;
-    int nb_input_registers;
-    int nb_registers;
-    uint8_t *tab_bits;
-    uint8_t *tab_input_bits;
-    uint16_t *tab_input_registers;
-    uint16_t *tab_registers;
-} modbus_mapping_t;
-
-typedef struct {
-    modbus_storage_backend_vfptable* vfptable;
-} modbus_storage_backend;
+    void* backend_data;
+} modbus_storage_backend_t;
 
 typedef enum
 {
@@ -226,9 +217,11 @@ MODBUS_API int modbus_write_and_read_registers(modbus_t *ctx, int write_addr, in
                                                uint16_t *dest);
 MODBUS_API int modbus_report_slave_id(modbus_t *ctx, int max_dest, uint8_t *dest);
 
+#if 0
 MODBUS_API modbus_mapping_t* modbus_mapping_new(int nb_bits, int nb_input_bits,
                                             int nb_registers, int nb_input_registers);
 MODBUS_API void modbus_mapping_free(modbus_mapping_t *mb_mapping);
+#endif
 
 MODBUS_API int modbus_send_raw_request(modbus_t *ctx, uint8_t *raw_req, int raw_req_length);
 
@@ -237,7 +230,7 @@ MODBUS_API int modbus_receive(modbus_t *ctx, uint8_t *req);
 MODBUS_API int modbus_receive_confirmation(modbus_t *ctx, uint8_t *rsp);
 
 MODBUS_API int modbus_reply(modbus_t *ctx, const uint8_t *req,
-                        int req_length, modbus_storage_backend *mb_mapping);
+                        int req_length, modbus_storage_backend_t *mb_mapping);
 MODBUS_API int modbus_reply_exception(modbus_t *ctx, const uint8_t *req,
                                       unsigned int exception_code);
 

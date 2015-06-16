@@ -13,6 +13,7 @@
 #include <errno.h>
 
 #include <modbus.h>
+#include <default_mapping.h>
 
 #if defined(_WIN32)
 #define close closesocket
@@ -27,7 +28,8 @@ int main(int argc, char *argv[])
 {
     int s = -1;
     modbus_t *ctx = NULL;
-    modbus_mapping_t *mb_mapping = NULL;
+    modbus_storage_backend_t *mb_storage_be;
+  
     int rc;
     int use_backend;
 
@@ -57,9 +59,9 @@ int main(int argc, char *argv[])
         modbus_connect(ctx);
     }
 
-    mb_mapping = modbus_mapping_new(MODBUS_MAX_READ_BITS, 0,
+    mb_storage_be = modbus_default_mapping_new(MODBUS_MAX_READ_BITS, 0,
                                     MODBUS_MAX_READ_REGISTERS, 0);
-    if (mb_mapping == NULL) {
+    if (mb_storage_be == NULL) {
         fprintf(stderr, "Failed to allocate the mapping: %s\n",
                 modbus_strerror(errno));
         modbus_free(ctx);
@@ -71,7 +73,7 @@ int main(int argc, char *argv[])
 
         rc = modbus_receive(ctx, query);
         if (rc > 0) {
-            modbus_reply(ctx, query, rc, mb_mapping);
+            modbus_reply(ctx, query, rc, mb_storage_be);
         } else if (rc  == -1) {
             /* Connection closed by the client or error */
             break;
@@ -80,7 +82,7 @@ int main(int argc, char *argv[])
 
     printf("Quit the loop: %s\n", modbus_strerror(errno));
 
-    modbus_mapping_free(mb_mapping);
+    modbus_default_mapping_free(mb_storage_be);
     if (s != -1) {
         close(s);
     }

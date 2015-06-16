@@ -699,7 +699,7 @@ static int response_exception(modbus_t *ctx, sft_t *sft,
    accordingly.
 */
 int modbus_reply(modbus_t *ctx, const uint8_t *req,
-                 int req_length, modbus_storage_backend *mb_storage_backend)
+                 int req_length, modbus_storage_backend_t *mb_storage_backend)
 {
     int offset;
     int slave;
@@ -1814,6 +1814,7 @@ int modbus_set_debug(modbus_t *ctx, int flag)
     return 0;
 }
 
+#if 0
 /* Allocates 4 arrays to store bits, input bits, registers and inputs
    registers. The pointers are stored in modbus_mapping structure.
 
@@ -1909,6 +1910,8 @@ void modbus_mapping_free(modbus_mapping_t *mb_mapping)
     free(mb_mapping->tab_bits);
     free(mb_mapping);
 }
+
+#endif
 
 #ifndef HAVE_STRLCPY
 /*

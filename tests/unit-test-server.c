@@ -10,6 +10,8 @@
 #include <stdlib.h>
 #include <errno.h>
 #include <modbus.h>
+#include <default_mapping.h>
+
 #ifdef _WIN32
 # include <winsock2.h>
 #else
@@ -33,7 +35,7 @@ int main(int argc, char*argv[])
 {
     int s = -1;
     modbus_t *ctx;
-    modbus_mapping_t *mb_mapping;
+    modbus_storage_backend_t *mb_storage_be;
     int rc;
     int i;
     int use_backend;
@@ -71,17 +73,19 @@ int main(int argc, char*argv[])
 
     modbus_set_debug(ctx, TRUE);
 
-    mb_mapping = modbus_mapping_new(
+    mb_storage_be = modbus_default_mapping_new(
         UT_BITS_ADDRESS + UT_BITS_NB,
         UT_INPUT_BITS_ADDRESS + UT_INPUT_BITS_NB,
         UT_REGISTERS_ADDRESS + UT_REGISTERS_NB,
         UT_INPUT_REGISTERS_ADDRESS + UT_INPUT_REGISTERS_NB);
-    if (mb_mapping == NULL) {
+    if (mb_storage_be == NULL) {
         fprintf(stderr, "Failed to allocate the mapping: %s\n",
                 modbus_strerror(errno));
         modbus_free(ctx);
         return -1;
     }
+
+      modbus_mapping_t* mb_mapping = (modbus_mapping_t*) mb_storage_be->backend_data;
 
     /* Unit tests of modbus_mapping_new (tests would not be sufficient if two
        nb_* were identical) */
@@ -201,7 +205,7 @@ int main(int argc, char*argv[])
             }
         }
 
-        rc = modbus_reply(ctx, query, rc, mb_mapping);
+        rc = modbus_reply(ctx, query, rc, mb_storage_be);
         if (rc == -1) {
             break;
         }
@@ -214,7 +218,7 @@ int main(int argc, char*argv[])
             close(s);
         }
     }
-    modbus_mapping_free(mb_mapping);
+    modbus_default_mapping_free(mb_storage_be);
     free(query);
     /* For RTU */
     modbus_close(ctx);

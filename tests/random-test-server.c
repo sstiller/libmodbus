@@ -12,18 +12,19 @@
 #include <errno.h>
 
 #include <modbus.h>
+#include <default_mapping.h>
 
 int main(void)
 {
     int s = -1;
     modbus_t *ctx;
-    modbus_mapping_t *mb_mapping;
+    modbus_storage_backend_t *mb_storage_be;
 
     ctx = modbus_new_tcp("127.0.0.1", 1502);
     /* modbus_set_debug(ctx, TRUE); */
 
-    mb_mapping = modbus_mapping_new(500, 500, 500, 500);
-    if (mb_mapping == NULL) {
+    mb_storage_be = modbus_default_mapping_new(500, 500, 500, 500);
+    if (mb_storage_be == NULL) {
         fprintf(stderr, "Failed to allocate the mapping: %s\n",
                 modbus_strerror(errno));
         modbus_free(ctx);
@@ -40,7 +41,7 @@ int main(void)
         rc = modbus_receive(ctx, query);
         if (rc > 0) {
             /* rc is the query size */
-            modbus_reply(ctx, query, rc, mb_mapping);
+            modbus_reply(ctx, query, rc, mb_storage_be);
         } else if (rc == -1) {
             /* Connection closed by the client or error */
             break;
@@ -52,7 +53,7 @@ int main(void)
     if (s != -1) {
         close(s);
     }
-    modbus_mapping_free(mb_mapping);
+    modbus_default_mapping_free(mb_storage_be);
     modbus_close(ctx);
     modbus_free(ctx);
 
