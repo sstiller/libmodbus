@@ -25,9 +25,10 @@
 
 #define NB_CONNECTION    5
 
-modbus_t *ctx = NULL;
-int server_socket = -1;
+static modbus_t *ctx = NULL;
 modbus_storage_backend_t *mb_storage_be;
+
+static int server_socket = -1;
 
 static void close_sigint(int dummy)
 {
