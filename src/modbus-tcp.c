@@ -14,6 +14,8 @@
 #include <signal.h>
 #include <sys/types.h>
 
+/* #define ENABLE_EINTR_HANDLING */
+
 #if defined(_WIN32)
 # define OS_WIN32
 /* ws2_32.dll has getaddrinfo and freeaddrinfo on Windows XP and later.
@@ -703,6 +705,7 @@ static int _modbus_tcp_select(modbus_t *ctx, fd_set *rset, struct timeval *tv, i
 {
     int s_rc;
     while ((s_rc = select(ctx->s+1, rset, NULL, NULL, tv)) == -1) {
+#ifdef ENABLE_EINTR_HANDLING
         if (errno == EINTR) {
             if (ctx->debug) {
                 fprintf(stderr, "A non blocked signal was caught\n");
@@ -711,8 +714,11 @@ static int _modbus_tcp_select(modbus_t *ctx, fd_set *rset, struct timeval *tv, i
             FD_ZERO(rset);
             FD_SET(ctx->s, rset);
         } else {
-            return -1;
+          return -1;
         }
+#else
+      return(-1);
+#endif
     }
 
     if (s_rc == 0) {
