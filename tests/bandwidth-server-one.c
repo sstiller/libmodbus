@@ -48,32 +48,37 @@ int main(int argc, char *argv[])
         use_backend = TCP;
     }
 
+    mb_storage_be = modbus_default_mapping_new(MODBUS_MAX_READ_BITS, 0,
+                                   MODBUS_MAX_READ_REGISTERS, 0);
+    if (mb_storage_be == NULL) {
+        fprintf(stderr, "Failed to allocate the mapping: %s\n",
+                modbus_strerror(errno));
+        return -1;
+    }
+
     if (use_backend == TCP) {
-        ctx = modbus_new_tcp("127.0.0.1", 1502);
+        ctx = modbus_new_tcp("127.0.0.1", 1502, mb_storage_be);
         s = modbus_tcp_listen(ctx, 1);
         modbus_tcp_accept(ctx, &s);
 
     } else {
-        ctx = modbus_new_rtu("/dev/ttyUSB0", 115200, 'N', 8, 1);
+        ctx = modbus_new_rtu("/dev/ttyUSB0", 115200, 'N', 8, 1, mb_storage_be);
         modbus_set_slave(ctx, 1);
         modbus_connect(ctx);
     }
-
-    mb_storage_be = modbus_default_mapping_new(MODBUS_MAX_READ_BITS, 0,
-                                    MODBUS_MAX_READ_REGISTERS, 0);
-    if (mb_storage_be == NULL) {
-        fprintf(stderr, "Failed to allocate the mapping: %s\n",
+    if (ctx == NULL) {
+        fprintf(stderr, "Failed to allocate the ctx: %s\n",
                 modbus_strerror(errno));
-        modbus_free(ctx);
         return -1;
     }
+
 
     for(;;) {
         uint8_t query[MODBUS_TCP_MAX_ADU_LENGTH];
 
         rc = modbus_receive(ctx, query);
         if (rc > 0) {
-            modbus_reply(ctx, query, rc, mb_storage_be);
+            modbus_reply(ctx, query, rc);
         } else if (rc  == -1) {
             /* Connection closed by the client or error */
             break;

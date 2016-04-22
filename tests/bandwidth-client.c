@@ -15,6 +15,7 @@
 #include <errno.h>
 
 #include <modbus.h>
+#include <default_mapping.h>
 
 #define G_MSEC_PER_SEC 1000
 
@@ -50,6 +51,8 @@ int main(int argc, char *argv[])
     int rc;
     int n_loop;
     int use_backend;
+    modbus_storage_backend_t *mb_storage_be = NULL;
+
 
     if (argc > 1) {
         if (strcmp(argv[1], "tcp") == 0) {
@@ -67,11 +70,19 @@ int main(int argc, char *argv[])
         use_backend = TCP;
         n_loop = 100000;
     }
+  
+    mb_storage_be = modbus_default_mapping_new(MODBUS_MAX_READ_BITS, 0,
+                                   MODBUS_MAX_READ_REGISTERS, 0);
+    if (mb_storage_be == NULL) {
+        fprintf(stderr, "Failed to allocate the mapping: %s\n",
+                modbus_strerror(errno));
+        return -1;
+    }
 
     if (use_backend == TCP) {
-        ctx = modbus_new_tcp("127.0.0.1", 1502);
+        ctx = modbus_new_tcp("127.0.0.1", 1502, mb_storage_be);
     } else {
-        ctx = modbus_new_rtu("/dev/ttyUSB1", 115200, 'N', 8, 1);
+        ctx = modbus_new_rtu("/dev/ttyUSB1", 115200, 'N', 8, 1,mb_storage_be);
         modbus_set_slave(ctx, 1);
     }
     if (modbus_connect(ctx) == -1) {

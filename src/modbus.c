@@ -294,24 +294,43 @@ int modbus_send_raw_request(modbus_t *ctx, uint8_t *raw_req, int raw_req_length)
  */
 
 /* Computes the length to read after the function received */
-static uint8_t compute_meta_length_after_function(int function,
+static uint8_t compute_meta_length_after_function(modbus_t *ctx, int function,
                                                   msg_type_t msg_type)
 {
     int length;
 
-    if (msg_type == MSG_INDICATION) {
-        if (function <= MODBUS_FC_WRITE_SINGLE_REGISTER) {
+    if (msg_type == MSG_INDICATION)
+    {
+        switch(function){
+        case MODBUS_FC_READ_COILS:
+        case MODBUS_FC_READ_DISCRETE_INPUTS:
+        case MODBUS_FC_READ_HOLDING_REGISTERS:
+        case MODBUS_FC_READ_INPUT_REGISTERS:
+        case MODBUS_FC_WRITE_SINGLE_COIL:
+        case MODBUS_FC_WRITE_SINGLE_REGISTER:
             length = 4;
-        } else if (function == MODBUS_FC_WRITE_MULTIPLE_COILS ||
-                   function == MODBUS_FC_WRITE_MULTIPLE_REGISTERS) {
+            break;
+        case MODBUS_FC_WRITE_MULTIPLE_COILS:
+        case MODBUS_FC_WRITE_MULTIPLE_REGISTERS:
             length = 5;
-        } else if (function == MODBUS_FC_MASK_WRITE_REGISTER) {
+            break;
+        case MODBUS_FC_MASK_WRITE_REGISTER:
             length = 6;
-        } else if (function == MODBUS_FC_WRITE_AND_READ_REGISTERS) {
+            break;
+        case MODBUS_FC_WRITE_AND_READ_REGISTERS:
             length = 9;
-        } else {
-            /* MODBUS_FC_READ_EXCEPTION_STATUS, MODBUS_FC_REPORT_SLAVE_ID */
+            break;
+        case MODBUS_FC_READ_EXCEPTION_STATUS:
+        case MODBUS_FC_REPORT_SLAVE_ID:
             length = 0;
+            break;
+        default:
+            if(ctx->mb_storage_backend->vfptable->user_compute_meta_length_after_function != NULL)
+            {
+                length = ctx->mb_storage_backend->vfptable->user_compute_meta_length_after_function(ctx->mb_storage_backend, function, msg_type);
+            }else{
+                length = 0;
+            }
         }
     } else {
         /* MSG_CONFIRMATION */
@@ -325,8 +344,22 @@ static uint8_t compute_meta_length_after_function(int function,
         case MODBUS_FC_MASK_WRITE_REGISTER:
             length = 6;
             break;
-        default:
+        case MODBUS_FC_READ_COILS:
+        case MODBUS_FC_READ_DISCRETE_INPUTS:
+        case MODBUS_FC_READ_HOLDING_REGISTERS:
+        case MODBUS_FC_READ_INPUT_REGISTERS:
+        case MODBUS_FC_READ_EXCEPTION_STATUS:
+        case MODBUS_FC_REPORT_SLAVE_ID:
+        case MODBUS_FC_WRITE_AND_READ_REGISTERS:
             length = 1;
+            break;
+        default:
+            if(ctx->mb_storage_backend->vfptable->user_compute_meta_length_after_function != NULL)
+            {
+                length = ctx->mb_storage_backend->vfptable->user_compute_meta_length_after_function(ctx->mb_storage_backend, function, msg_type);
+            }else{
+                length = 0;
+            }
         }
     }
 
@@ -349,17 +382,51 @@ static int compute_data_length_after_meta(modbus_t *ctx, uint8_t *msg,
         case MODBUS_FC_WRITE_AND_READ_REGISTERS:
             length = msg[ctx->backend->header_length + 9];
             break;
-        default:
+        case MODBUS_FC_WRITE_SINGLE_COIL:
+        case MODBUS_FC_WRITE_SINGLE_REGISTER:
+        case MODBUS_FC_MASK_WRITE_REGISTER:
+        case MODBUS_FC_READ_COILS:
+        case MODBUS_FC_READ_DISCRETE_INPUTS:
+        case MODBUS_FC_READ_HOLDING_REGISTERS:
+        case MODBUS_FC_READ_INPUT_REGISTERS:
+        case MODBUS_FC_READ_EXCEPTION_STATUS:
+        case MODBUS_FC_REPORT_SLAVE_ID:
             length = 0;
+            break;
+        default:
+            if(ctx->mb_storage_backend->vfptable->user_compute_data_length_after_meta != NULL)
+            {
+                length = ctx->mb_storage_backend->vfptable->user_compute_data_length_after_meta(ctx->mb_storage_backend, function, msg_type, msg);
+            }else{
+                length = 0;
+            }
         }
     } else {
         /* MSG_CONFIRMATION */
-        if (function <= MODBUS_FC_READ_INPUT_REGISTERS ||
-            function == MODBUS_FC_REPORT_SLAVE_ID ||
-            function == MODBUS_FC_WRITE_AND_READ_REGISTERS) {
+        switch(function) {
+				case MODBUS_FC_READ_COILS:
+				case MODBUS_FC_READ_DISCRETE_INPUTS:
+				case MODBUS_FC_READ_HOLDING_REGISTERS:
+				case MODBUS_FC_READ_INPUT_REGISTERS:
+				case MODBUS_FC_REPORT_SLAVE_ID:
+				case MODBUS_FC_WRITE_AND_READ_REGISTERS:
             length = msg[ctx->backend->header_length + 1];
-        } else {
+            break;
+        case MODBUS_FC_WRITE_SINGLE_COIL:
+				case MODBUS_FC_WRITE_SINGLE_REGISTER:
+				case MODBUS_FC_READ_EXCEPTION_STATUS:
+				case MODBUS_FC_WRITE_MULTIPLE_COILS:
+				case MODBUS_FC_WRITE_MULTIPLE_REGISTERS:
+				case MODBUS_FC_MASK_WRITE_REGISTER:
             length = 0;
+            break;
+        default:
+            if(ctx->mb_storage_backend->vfptable->user_compute_data_length_after_meta != NULL)
+            {
+                length = ctx->mb_storage_backend->vfptable->user_compute_data_length_after_meta(ctx->mb_storage_backend, function, msg_type, msg);
+            }else{
+                length = 0;
+            }
         }
     }
 
@@ -476,6 +543,7 @@ int _modbus_receive_msg(modbus_t *ctx, uint8_t *msg, msg_type_t msg_type)
             case _STEP_FUNCTION:
                 /* Function code position */
                 length_to_read = compute_meta_length_after_function(
+                    ctx,
                     msg[ctx->backend->header_length],
                     msg_type);
                 if (length_to_read != 0) {
@@ -699,7 +767,7 @@ static int response_exception(modbus_t *ctx, sft_t *sft,
    accordingly.
 */
 int modbus_reply(modbus_t *ctx, const uint8_t *req,
-                 int req_length, modbus_storage_backend_t *mb_storage_backend)
+                 int req_length)
 {
     int offset;
     int slave;
@@ -744,7 +812,7 @@ int modbus_reply(modbus_t *ctx, const uint8_t *req,
             rsp_length = ctx->backend->build_response_basis(&sft, rsp);
             uint16_t byte_count = (nb / 8) + ((nb % 8) ? 1 : 0);
             rsp[rsp_length++] = byte_count;
-            res = mb_storage_backend->vfptable->read_coils(mb_storage_backend, address, nb, &byte_count, rsp + rsp_length);
+            res = ctx->mb_storage_backend->vfptable->read_coils(ctx->mb_storage_backend, address, nb, &byte_count, rsp + rsp_length);
             if (res != 0) {
                 if (ctx->debug) {
                     _reply_debug_print(function, address, nb, res);
@@ -777,7 +845,7 @@ int modbus_reply(modbus_t *ctx, const uint8_t *req,
             rsp_length = ctx->backend->build_response_basis(&sft, rsp);
             uint16_t byte_count = (nb / 8) + ((nb % 8) ? 1 : 0);
             rsp[rsp_length++] = byte_count;
-            res = mb_storage_backend->vfptable->read_inputs(mb_storage_backend, address, nb, &byte_count, rsp + rsp_length);
+            res = ctx->mb_storage_backend->vfptable->read_inputs(ctx->mb_storage_backend, address, nb, &byte_count, rsp + rsp_length);
 
             if (res != 0) { // Ilegal Address
                 if (ctx->debug) {
@@ -811,7 +879,7 @@ int modbus_reply(modbus_t *ctx, const uint8_t *req,
             uint16_t byte_count = nb << 1;
             rsp[rsp_length++] = nb << 1;
             uint16_t* output = (uint16_t*)malloc(nb * sizeof(uint16_t));
-            res = mb_storage_backend->vfptable->read_holding_registers(mb_storage_backend, address, nb, &byte_count, output);
+            res = ctx->mb_storage_backend->vfptable->read_holding_registers(ctx->mb_storage_backend, address, nb, &byte_count, output);
             for(i = 0; i < nb; ++i)
             {
                 rsp[rsp_length++] = output[i] >> 8;
@@ -851,7 +919,7 @@ int modbus_reply(modbus_t *ctx, const uint8_t *req,
             uint16_t byte_count = nb << 1;
             rsp[rsp_length++] = nb << 1;
             uint16_t* output = (uint16_t*)malloc(nb * sizeof(uint16_t));
-            res = mb_storage_backend->vfptable->read_input_registers(mb_storage_backend, address, nb, &byte_count, output);
+            res = ctx->mb_storage_backend->vfptable->read_input_registers(ctx->mb_storage_backend, address, nb, &byte_count, output);
             for(i = 0; i < nb; ++i)
             {
                 rsp[rsp_length++] = output[i] >> 8;
@@ -873,7 +941,7 @@ int modbus_reply(modbus_t *ctx, const uint8_t *req,
 
         if (data == 0xFF00 || data == 0x0) {
             uint8_t on = data?1:0;
-            res = mb_storage_backend->vfptable->write_single_coil(mb_storage_backend, address, on);
+            res = ctx->mb_storage_backend->vfptable->write_single_coil(ctx->mb_storage_backend, address, on);
             if (res == 0) { // Address was legal and everything's OK
                 memcpy(rsp, req, req_length);
                 rsp_length = req_length;
@@ -897,7 +965,7 @@ int modbus_reply(modbus_t *ctx, const uint8_t *req,
         break;
     case MODBUS_FC_WRITE_SINGLE_REGISTER: {
         uint16_t data = (req[offset + 3] << 8) + req[offset + 4];
-        res = mb_storage_backend->vfptable->write_single_register(mb_storage_backend, address, data);
+        res = ctx->mb_storage_backend->vfptable->write_single_register(ctx->mb_storage_backend, address, data);
         if (res == 0) {
             memcpy(rsp, req, req_length);
             rsp_length = req_length;
@@ -929,7 +997,7 @@ int modbus_reply(modbus_t *ctx, const uint8_t *req,
         } else {
             /* 6 = byte count */
             const uint8_t* data = req + offset + 6;
-            res = mb_storage_backend->vfptable->write_multiple_coils(mb_storage_backend, address, nb, data);
+            res = ctx->mb_storage_backend->vfptable->write_multiple_coils(ctx->mb_storage_backend, address, nb, data);
             if (res == 0) {
                 rsp_length = ctx->backend->build_response_basis(&sft, rsp);
                 /* 4 to copy the bit address (2) and the quantity of bits */
@@ -968,7 +1036,7 @@ int modbus_reply(modbus_t *ctx, const uint8_t *req,
                 data[i] = (req[offset] << 8) + req[offset + 1];
                 offset += 2;
             }
-            res = mb_storage_backend->vfptable->write_multiple_registers(mb_storage_backend, address, nb, data);
+            res = ctx->mb_storage_backend->vfptable->write_multiple_registers(ctx->mb_storage_backend, address, nb, data);
 
             if (res == 0)
             {
@@ -982,6 +1050,7 @@ int modbus_reply(modbus_t *ctx, const uint8_t *req,
                 }
                 rsp_length = response_exception(ctx, &sft, res, rsp);
             }
+            free(data);
         }
     }
         break;
@@ -1014,10 +1083,10 @@ int modbus_reply(modbus_t *ctx, const uint8_t *req,
             uint16_t and_value = (req[offset + 3] << 8) + req[offset + 4];
             uint16_t or_value = (req[offset + 5] << 8)+ req[offset + 6];
             uint16_t byte_count = 2;
-            res = mb_storage_backend->vfptable->read_holding_registers(mb_storage_backend, address, 1, &byte_count, &data);
+            res = ctx->mb_storage_backend->vfptable->read_holding_registers    (ctx->mb_storage_backend, address, 1, &byte_count, &data);
             if(res >= 0) { 
                 data = (data & and_value) | (or_value & (~and_value));
-                res = mb_storage_backend->vfptable->write_single_register(mb_storage_backend, address, data);
+                res = ctx->mb_storage_backend->vfptable->write_single_register(ctx->mb_storage_backend, address, data);
                 memcpy(rsp, req, req_length);
                 rsp_length = req_length;
                }
@@ -1062,9 +1131,9 @@ int modbus_reply(modbus_t *ctx, const uint8_t *req,
                 data[i] = (req[offset] & 0xff) + (req[offset + 1] >> 8);
                 offset += 2;
             }
-            res = mb_storage_backend->vfptable->write_multiple_registers(mb_storage_backend, address_write, nb_write_bytes / 2, data);            
+            res = ctx->mb_storage_backend->vfptable->write_multiple_registers(ctx->mb_storage_backend, address_write, nb_write_bytes / 2, data);            
             if (res == 0) {
-                res = mb_storage_backend->vfptable->read_holding_registers(mb_storage_backend, address, nb, &byte_count, data);
+                res = ctx->mb_storage_backend->vfptable->read_holding_registers(ctx->mb_storage_backend, address, nb, &byte_count, data);
                 if(res == 0) {
                     /* and read the data for the response */
                     for (i = 0; i < nb ; ++i) {
@@ -1085,10 +1154,13 @@ int modbus_reply(modbus_t *ctx, const uint8_t *req,
         break;
 
     default:
-        rsp_length = response_exception(ctx, &sft,
-                                        MODBUS_EXCEPTION_ILLEGAL_FUNCTION,
-                                        rsp);
-        break;
+        {
+            rsp_length = response_exception(ctx, &sft,
+                                            MODBUS_EXCEPTION_ILLEGAL_FUNCTION,
+                                            rsp);
+            break;
+        }
+        
     }
 
     /* Suppress any responses when the request was a broadcast */

@@ -10,6 +10,7 @@
 #include <stdlib.h>
 #include <errno.h>
 #include <modbus.h>
+#include <default_mapping.h>
 
 #include "unit-test.h"
 
@@ -62,7 +63,8 @@ int main(int argc, char *argv[])
     uint32_t old_byte_to_usec;
     int use_backend;
     int success = FALSE;
-
+    modbus_storage_backend_t *mb_storage_be = NULL;
+  
     if (argc > 1) {
         if (strcmp(argv[1], "tcp") == 0) {
             use_backend = TCP;
@@ -78,13 +80,20 @@ int main(int argc, char *argv[])
         /* By default */
         use_backend = TCP;
     }
-
+  
+    mb_storage_be = modbus_default_mapping_new(MODBUS_MAX_READ_BITS, 0,
+                                   MODBUS_MAX_READ_REGISTERS, 0);
+    if (mb_storage_be == NULL) {
+        fprintf(stderr, "Failed to allocate the mapping: %s\n",
+                modbus_strerror(errno));
+        return -1;
+    }
     if (use_backend == TCP) {
-        ctx = modbus_new_tcp("127.0.0.1", 1502);
+        ctx = modbus_new_tcp("127.0.0.1", 1502, mb_storage_be);
     } else if (use_backend == TCP_PI) {
-        ctx = modbus_new_tcp_pi("::1", "1502");
+        ctx = modbus_new_tcp_pi("::1", "1502", mb_storage_be);
     } else {
-        ctx = modbus_new_rtu("/dev/ttyUSB1", 115200, 'N', 8, 1);
+        ctx = modbus_new_rtu("/dev/ttyUSB1", 115200, 'N', 8, 1, mb_storage_be);
     }
     if (ctx == NULL) {
         fprintf(stderr, "Unable to allocate libmodbus context\n");
@@ -604,13 +613,13 @@ int main(int argc, char *argv[])
 
     /* Test init functions */
     printf("\nTEST INVALID INITIALIZATION:\n");
-    ctx = modbus_new_rtu(NULL, 1, 'A', 0, 0);
+    ctx = modbus_new_rtu(NULL, 1, 'A', 0, 0, mb_storage_be);
     ASSERT_TRUE(ctx == NULL && errno == EINVAL, "");
 
-    ctx = modbus_new_rtu("/dev/dummy", 0, 'A', 0, 0);
+    ctx = modbus_new_rtu("/dev/dummy", 0, 'A', 0, 0, mb_storage_be);
     ASSERT_TRUE(ctx == NULL && errno == EINVAL, "");
 
-    ctx = modbus_new_tcp_pi(NULL, NULL);
+    ctx = modbus_new_tcp_pi(NULL, NULL, mb_storage_be);
     ASSERT_TRUE(ctx == NULL && errno == EINVAL, "");
 
     printf("\nALL TESTS PASS WITH SUCCESS.\n");

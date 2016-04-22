@@ -113,6 +113,18 @@ MODBUS_BEGIN_DECLS
 /* Random number to avoid errno conflicts */
 #define MODBUS_ENOBASE 112345678
 
+/*
+ *  ---------- Request     Indication ----------
+ *  | Client | ---------------------->| Server |
+ *  ---------- Confirmation  Response ----------
+ */
+typedef enum {
+    /* Request message on the server side */
+    MSG_INDICATION,
+    /* Request message on the client side */
+    MSG_CONFIRMATION
+} msg_type_t;
+
 /* Protocol exceptions */
 enum {
     MODBUS_EXCEPTION_ILLEGAL_FUNCTION = 0x01,
@@ -157,14 +169,16 @@ typedef struct modbus_storage_backend_t modbus_storage_backend_t;
 
 typedef struct _modbus_storage_backend_vfptable {
 	int version;
-	int (*read_coils)(modbus_storage_backend_t* /*backend*/, uint16_t /*starting_address*/, uint16_t /*quantity*/, uint16_t* /*byte_count*/, uint8_t[] /*coils*/);
-	int (*read_inputs)(modbus_storage_backend_t* backend, uint16_t starting_address, uint16_t quantity, uint16_t* byte_count, uint8_t inputs[]);
-	int (*read_holding_registers)(modbus_storage_backend_t* backend, uint16_t starting_address, uint16_t quantity, uint16_t* byte_count, uint16_t values[]);
-	int (*read_input_registers)(modbus_storage_backend_t* backend, uint16_t starting_address, uint16_t quantity, uint16_t* byte_count, uint16_t values[]);
+	int (*read_coils)(modbus_storage_backend_t* /*backend*/, uint16_t /*starting_address*/, uint16_t /*quantity*/, uint16_t* /*byte_count*/, uint8_t* /*coils*/);
+	int (*read_inputs)(modbus_storage_backend_t* backend, uint16_t starting_address, uint16_t quantity, uint16_t* byte_count, uint8_t* inputs);
+	int (*read_holding_registers)(modbus_storage_backend_t* backend, uint16_t starting_address, uint16_t quantity, uint16_t* byte_count, uint16_t* values);
+	int (*read_input_registers)(modbus_storage_backend_t* backend, uint16_t starting_address, uint16_t quantity, uint16_t* byte_count, uint16_t* values);
 	int (*write_single_coil)(modbus_storage_backend_t* backend, uint16_t address, uint8_t on);
 	int (*write_single_register)(modbus_storage_backend_t* backend, uint16_t address, uint16_t value);
-	int (*write_multiple_coils)(modbus_storage_backend_t* backend, uint16_t starting_address, uint16_t quantity, const uint8_t values[]);
-	int (*write_multiple_registers)(modbus_storage_backend_t* backend, uint16_t starting_address, uint16_t quantity, const uint16_t values[]);
+	int (*write_multiple_coils)(modbus_storage_backend_t* backend, uint16_t starting_address, uint16_t quantity, const uint8_t* values);
+	int (*write_multiple_registers)(modbus_storage_backend_t* backend, uint16_t starting_address, uint16_t quantity, const uint16_t* values);
+  int (*user_compute_meta_length_after_function)(modbus_storage_backend_t* backend, int function_code, msg_type_t msg_type);
+  int (*user_compute_data_length_after_meta)(modbus_storage_backend_t* backend, int function_code, msg_type_t msg_type, uint8_t* msg);
 } modbus_storage_backend_vfptable;
 
 typedef struct modbus_storage_backend_t {
@@ -233,7 +247,7 @@ MODBUS_API int modbus_receive(modbus_t *ctx, uint8_t *req);
 MODBUS_API int modbus_receive_confirmation(modbus_t *ctx, uint8_t *rsp);
 
 MODBUS_API int modbus_reply(modbus_t *ctx, const uint8_t *req,
-                        int req_length, modbus_storage_backend_t *mb_mapping);
+                        int req_length);
 MODBUS_API int modbus_reply_exception(modbus_t *ctx, const uint8_t *req,
                                       unsigned int exception_code);
 

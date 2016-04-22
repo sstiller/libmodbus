@@ -13,6 +13,7 @@
 #include <errno.h>
 
 #include <modbus.h>
+#include <default_mapping.h>
 
 /* The goal of this program is to check all major functions of
    libmodbus:
@@ -48,15 +49,22 @@ int main(void)
     uint16_t *tab_rq_registers;
     uint16_t *tab_rw_rq_registers;
     uint16_t *tab_rp_registers;
+    modbus_storage_backend_t *mb_storage_be = NULL;
 
     /* RTU */
 /*
     ctx = modbus_new_rtu("/dev/ttyUSB0", 19200, 'N', 8, 1);
     modbus_set_slave(ctx, SERVER_ID);
 */
-
+    mb_storage_be = modbus_default_mapping_new(MODBUS_MAX_READ_BITS, 0,
+                                   MODBUS_MAX_READ_REGISTERS, 0);
+    if (mb_storage_be == NULL) {
+        fprintf(stderr, "Failed to allocate the mapping: %s\n",
+                modbus_strerror(errno));
+        return -1;
+    }
     /* TCP */
-    ctx = modbus_new_tcp("127.0.0.1", 1502);
+    ctx = modbus_new_tcp("127.0.0.1", 1502, mb_storage_be);
     modbus_set_debug(ctx, TRUE);
 
     if (modbus_connect(ctx) == -1) {

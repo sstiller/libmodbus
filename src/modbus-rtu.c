@@ -1209,7 +1209,8 @@ const modbus_backend_t _modbus_rtu_backend = {
 
 modbus_t* modbus_new_rtu(const char *device,
                          int baud, char parity, int data_bit,
-                         int stop_bit)
+                         int stop_bit,
+                         modbus_storage_backend_t* mb_storage_backend)
 {
     modbus_t *ctx;
     modbus_rtu_t *ctx_rtu;
@@ -1270,6 +1271,6 @@ modbus_t* modbus_new_rtu(const char *device,
 #endif
 
     ctx_rtu->confirmation_to_ignore = FALSE;
-
+    ctx->mb_storage_backend = mb_storage_backend;
     return ctx;
 }

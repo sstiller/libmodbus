@@ -20,16 +20,20 @@ int main(void)
     modbus_t *ctx;
     modbus_storage_backend_t *mb_storage_be;
 
-    ctx = modbus_new_tcp("127.0.0.1", 1502);
-    /* modbus_set_debug(ctx, TRUE); */
-
     mb_storage_be = modbus_default_mapping_new(500, 500, 500, 500);
     if (mb_storage_be == NULL) {
         fprintf(stderr, "Failed to allocate the mapping: %s\n",
                 modbus_strerror(errno));
-        modbus_free(ctx);
         return -1;
     }
+    ctx = modbus_new_tcp("127.0.0.1", 1502, mb_storage_be);
+    if (ctx == NULL) {
+        fprintf(stderr, "Failed to allocate the ctx: %s\n",
+                modbus_strerror(errno));
+        return -1;
+    }
+    /* modbus_set_debug(ctx, TRUE); */
+
 
     s = modbus_tcp_listen(ctx, 1);
     modbus_tcp_accept(ctx, &s);
@@ -41,7 +45,7 @@ int main(void)
         rc = modbus_receive(ctx, query);
         if (rc > 0) {
             /* rc is the query size */
-            modbus_reply(ctx, query, rc, mb_storage_be);
+            modbus_reply(ctx, query, rc);
         } else if (rc == -1) {
             /* Connection closed by the client or error */
             break;

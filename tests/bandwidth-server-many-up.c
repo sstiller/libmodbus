@@ -26,7 +26,7 @@
 #define NB_CONNECTION    5
 
 static modbus_t *ctx = NULL;
-modbus_storage_backend_t *mb_storage_be;
+modbus_storage_backend_t *mb_storage_be = NULL;
 
 static int server_socket = -1;
 
@@ -51,17 +51,21 @@ int main(void)
     /* Maximum file descriptor number */
     int fdmax;
 
-    ctx = modbus_new_tcp("127.0.0.1", 1502);
-
     mb_storage_be = modbus_default_mapping_new(MODBUS_MAX_READ_BITS, 0,
-                                    MODBUS_MAX_READ_REGISTERS, 0);
+                                   MODBUS_MAX_READ_REGISTERS, 0);
     if (mb_storage_be == NULL) {
         fprintf(stderr, "Failed to allocate the mapping: %s\n",
                 modbus_strerror(errno));
-        modbus_free(ctx);
+        return -1;
+    }
+    ctx = modbus_new_tcp("127.0.0.1", 1502, mb_storage_be);
+    if (ctx == NULL) {
+        fprintf(stderr, "Failed to allocate the ctx: %s\n",
+                modbus_strerror(errno));
         return -1;
     }
 
+  
     server_socket = modbus_tcp_listen(ctx, NB_CONNECTION);
 
     signal(SIGINT, close_sigint);
@@ -115,7 +119,7 @@ int main(void)
                 modbus_set_socket(ctx, master_socket);
                 rc = modbus_receive(ctx, query);
                 if (rc > 0) {
-                    modbus_reply(ctx, query, rc, mb_storage_be);
+                    modbus_reply(ctx, query, rc);
                 } else if (rc == -1) {
                     /* This example server in ended on connection closing or
                      * any errors. */
