@@ -191,6 +191,7 @@ modbus_storage_backend_t* modbus_default_mapping_new(int nb_bits, int nb_input_b
        mb_mapping->tab_bits = (uint8_t*) malloc(nb_bits * sizeof(uint8_t));
         if (mb_mapping->tab_bits == NULL) {
             free(mb_mapping);
+            free(mb_storage_be);
             return NULL;
         }
         memset(mb_mapping->tab_bits, 0, nb_bits * sizeof(uint8_t));
@@ -205,6 +206,7 @@ modbus_storage_backend_t* modbus_default_mapping_new(int nb_bits, int nb_input_b
         if (mb_mapping->tab_input_bits == NULL) {
             free(mb_mapping->tab_bits);
             free(mb_mapping);
+            free(mb_storage_be);
             return NULL;
         }
         memset(mb_mapping->tab_input_bits, 0, nb_input_bits * sizeof(uint8_t));
@@ -220,6 +222,7 @@ modbus_storage_backend_t* modbus_default_mapping_new(int nb_bits, int nb_input_b
             free(mb_mapping->tab_input_bits);
             free(mb_mapping->tab_bits);
             free(mb_mapping);
+            free(mb_storage_be);
             return NULL;
         }
         //memset(mb_mapping->tab_registers, 0, nb_registers * sizeof(uint16_t));
@@ -236,6 +239,7 @@ modbus_storage_backend_t* modbus_default_mapping_new(int nb_bits, int nb_input_b
             free(mb_mapping->tab_input_bits);
             free(mb_mapping->tab_bits);
             free(mb_mapping);
+            free(mb_storage_be);
             return NULL;
         }
         memset(mb_mapping->tab_input_registers, 0,
